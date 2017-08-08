@@ -1,5 +1,9 @@
 #include <Keypad2.h>
 #include <avr/sleep.h>
+#include <LiquidCrystal.h>
+
+// initialize the library with the numbers of the interface pins
+LiquidCrystal lcd(A0, A1, A2, A3, A4, A5);
 
 const byte ROWS = 4;
 const byte COLS = 4;
@@ -38,6 +42,11 @@ void setup()
    PCMSK0 |= _BV (PCINT0);    // pin 8  - PORTB mask 0x01
    
    Serial.begin (115200);
+    // set up the LCD's number of columns and rows:
+  lcd.begin(16, 2);
+  // Print a message to the LCD.
+ // lcd.print("hello, world!");
+   lcd.setCursor(0, 1);
    }
 
 
@@ -152,4 +161,9 @@ void acknowledgeKeypress(byte key)
   {
    Serial.print ("Got key: ");
    Serial.println ((char) key);
+   // set the cursor to column 0, line 1
+  // (note: line 1 is the second row, since counting begins with 0):
+  //lcd.setCursor(0, 1);
+  // print the number of seconds since reset:
+  lcd.print((char) key);
   }
