@@ -10,10 +10,11 @@
 #include <Keypad2.h>
 #include <LiquidCrystal.h>
 #include <avr/sleep.h>    
-//#include <MsTimer2.h>
-#include <TimerOne.h>
+#include <MsTimer2.h>
+//#include <TimerOne.h>
 //#include "LowPower.h"
-
+#include <avr/wdt.h>
+#include <dumpmon.h>        // Include necessary header.
 
 // initialize the library with the numbers of the interface pins
 LiquidCrystal lcd(A0, A1, A2, A3, A4, A5);
@@ -43,34 +44,47 @@ byte ledPin = 13;
 boolean blink = false;
 boolean ledPin_state;
 
-/*
+unsigned long timeBegin;
+
+int timer = 0;
+
 // we don't want to do anything except wake
 EMPTY_INTERRUPT (PCINT0_vect)
 EMPTY_INTERRUPT (PCINT1_vect)
 EMPTY_INTERRUPT (PCINT2_vect)
+
+/*
+// функция обработки прерывания SPI
+ISR (TIMER2_COMPA_vect)
+{
+  wakeUp();
+}
+
+ISR (TIMER2_COMPB_vect)
+{
+  wakeUp();
+}
+
+ISR (TIMER2_OVF_vect)
+{
+  wakeUp();
+}
 */
 
-// функция обработки прерывания SPI
-ISR (PCINT0_vect)
-{
-  wakeUp();
-}
-
-ISR (PCINT1_vect)
-{
-  wakeUp();
-}
-
-ISR (PCINT2_vect)
-{
-  wakeUp();
-}
-
-
+volatile boolean f_wdt=1;
 volatile byte bCount = 0; // use volatile for shared variables
 
 void setup(){
-    Serial.begin(115200);
+  wdt_disable(); // бесполезная строка до которой не доходит выполнение при bootloop
+  Serial.begin(115200);
+  Serial.println("Setup..");
+
+  Serial.println("Wait 5 sec..");
+  delay(5000); // Задержка, чтобы было время перепрошить устройство в случае bootloop
+  //wdt_enable (WDTO_8S); // Для тестов не рекомендуется устанавливать значение менее 8 сек.
+  Serial.println("Watchdog enabled.");
+  
+ 
     pinMode(ledPin, OUTPUT);              // Sets the digital pin as output.
     digitalWrite(ledPin, HIGH);           // Turn the LED on.
     ledPin_state = digitalRead(ledPin);   // Store initial LED state. HIGH when LED is on.
@@ -89,18 +103,25 @@ void setup(){
 
    SetTimer1 ();
 
- // MsTimer2::start();
+    timeBegin = millis();
+     //prints time since program started
+     Serial.println(timeBegin);
+    // MsTimer2::start();
+
+   // setup_watchdog(7);
+   dumpmonSetup(115200); 
+    
 }
 
 
 void SetTimer1 ()
 {
  
-  //MsTimer2::set(5000, TimerInterupt); // 1500ms period
-  //MsTimer2::start();
-   Timer1.initialize(5000000);
-   Timer1.stop();
-  Timer1.attachInterrupt(TimerInterupt); // blinkLED to run every 0.15 seconds
+  MsTimer2::set(1000, TimerInterupt); // 1500ms period
+  MsTimer2::stop();
+ //  Timer1.initialize(5000000);
+  // Timer1.stop();
+ // Timer1.attachInterrupt(TimerInterupt); // blinkLED to run every 0.15 seconds
   
 }
 
@@ -113,10 +134,70 @@ void TimerInterupt ()
   {
     Serial.println ("set timer ...");
     //Timer1.stop();
-    //goToSleep ();
+   // goToSleep ();
+   //reboot() ;
   }
 
 }
+
+
+//****************************************************************
+// 0=16ms, 1=32ms,2=64ms,3=128ms,4=250ms,5=500ms
+// 6=1 sec,7=2 sec, 8=4 sec, 9= 8sec
+void setup_watchdog(int ii) {
+ 
+  byte bb;
+  int ww;
+  if (ii > 9 ) ii=9;
+  bb=ii & 7;
+  if (ii > 7) bb|= (1<<5);
+  bb|= (1<<WDCE);
+  ww=bb;
+  Serial.println(ww);
+ 
+  MCUSR &= ~(1<<WDRF);
+  // запуск таймера
+  WDTCSR |= (1<<WDCE) | (1<<WDE);
+  // установка периода срабатывания сторожевого таймера
+  WDTCSR = bb;
+  WDTCSR |= _BV(WDIE);
+ 
+}
+//****************************************************************
+// Обработка прерывания сторожевого таймера / выполняется при истечении установленного для него периода
+ISR(WDT_vect) {  
+   bCount++;
+  if ( bCount < 10 ) 
+  {
+    f_wdt=0;  // установим глобальный флаг 
+    //wdt_disable();  // disable watchdog
+  }
+  else
+  {
+    bCount=0;
+    f_wdt=1;  // установим глобальный флаг 
+    }
+}
+
+void wdt_set ()
+{
+    // clear various "reset" flags
+  MCUSR = 0;     
+  // allow changes, disable reset
+  WDTCSR = bit (WDCE) | bit (WDE);
+  // set interrupt mode and an interval 
+  WDTCSR = bit (WDIE) | bit (WDP3) | bit (WDP0);    // set WDIE, and 8 seconds delay
+  wdt_reset();  // pat the dog
+  
+}
+
+void reboot() 
+{
+  wdt_disable(); 
+  wdt_enable(WDTO_15MS);
+  while (1) {}
+}
+
 
 void reconfigurePins ()
   {
@@ -204,12 +285,16 @@ void goToSleep ()
   // at this point, pressing a key should connect the high in the row to the 
   // to the low in the column and trigger a pin change
 
+  //wdt_set ();
+  MsTimer2::start();
+
   //interrupts(); 
   //set_sleep_mode (SLEEP_MODE_PWR_DOWN);  
-  set_sleep_mode (SLEEP_MODE_PWR_SAVE);  
+  //set_sleep_mode (SLEEP_MODE_PWR_SAVE);  
+   set_sleep_mode (SLEEP_MODE_IDLE); 
   
   sleep_enable();
-
+  
   byte old_ADCSRA = ADCSRA;
   // disable ADC to save power
   ADCSRA = 0;  
@@ -244,28 +329,47 @@ void goToSleep ()
     
   }  // end of goToSleep
 
+void testTimeToSleep ()
+{
+  unsigned long timeNow;
+  unsigned long timeDelta;
+    
+  timeNow = millis();
+  timeDelta = (timeNow - timeBegin) / 1000;  
+ 
+   if (timeDelta > 5)
+   {
+      Serial.println("I want sleep ...");
+      goToSleep ();
+   }
+   else
+   {
+    wdt_reset();  // pat the dog
+   }
+       
+}
+
 void loop(){
     char key = keypad.getKey();
 
     if (key) {
         Serial.println(key);
         lcd.print((char) key);
+        timeBegin = millis();
+  
     }
     if (blink){
         digitalWrite(ledPin,!digitalRead(ledPin));    // Change the ledPin from Hi2Lo or Lo2Hi.
         delay(100);
     }
+
+    testTimeToSleep ();
+    dumpmonLoop();          // Вызов функции цикла библиотеки DumpMon
 }
 
 // Taking care of some special events.
 void keypadEvent(KeypadEvent key){
 
-   //MsTimer2::stop();
-  // MsTimer2::start();
-bCount=0;
-  //Timer1.restart();
-  Timer1.stop();
-  Timer1.start();
    
     switch (keypad.getState()){
     case PRESSED:
