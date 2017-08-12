@@ -40,7 +40,6 @@ volatile byte watchdog_counter = 0;
 volatile boolean f_wdt = false;
 
 byte ledPin = 13;
-boolean blink = false;
 boolean ledPin_state;
 unsigned long timeBegin;
 
@@ -143,9 +142,7 @@ void setup()
   //prints time since program started
   Serial.println(timeBegin);
 
-  //setup_watchdog1(8);
-  
- //  setup_watchdog(WDTO_8S); //approximately 8 sec. of sleep  
+  setup_watchdog(WDTO_8S); //approximately 8 sec. of sleep  
 }
 
 
@@ -195,7 +192,9 @@ void testTimeToSleep ()
   if (timeDelta > 5)
   {
     Serial.println("I want sleep ...");
-    //goToSleep ();
+   setup_watchdog(WDTO_8S); //approximately 8 sec. of sleep    
+   go_sleep ();
+
   }
   else
   {
@@ -215,7 +214,6 @@ void keypadEvent(KeypadEvent key) {
       if (key == '#') {
         digitalWrite(ledPin, !digitalRead(ledPin));
         ledPin_state = digitalRead(ledPin);        // Remember LED state, lit or unlit.
-
       }
       // break;
       if (key == 'C') {
@@ -223,23 +221,21 @@ void keypadEvent(KeypadEvent key) {
       }
       if (key == 'D') {
         lcd.setCursor(1, 1);
-        goToSleep();
+        go_sleep();
       }
       break;
 
 
     case RELEASED:
-      if (key == 'A') {
+      if (key == '*') {
         digitalWrite(ledPin, ledPin_state);   // Restore LED state from before it started blinking.
-        blink = false;
-        goToSleep();
+        go_sleep();
       }
       break;
 
     case HOLD:
       if (key == '*') {
-        blink = true;    // Blink the LED when holding the * key.
-        // goToSleep();
+        // go_sleep();
       }
       break;
   }
@@ -291,15 +287,10 @@ void loop()
     Serial.println(key);
     lcd.print((char) key);
     timeBegin = millis();
-    watchdog_counter = 0;  
     f_wdt = false;
   }
-  if (blink) {
-    digitalWrite(ledPin, !digitalRead(ledPin));   // Change the ledPin from Hi2Lo or Lo2Hi.
-    delay(100);
-  }
 
-  //testTimeToSleep ();
+  testTimeToSleep ();
   
 }
 
@@ -396,9 +387,48 @@ void go_sleep()
           during the deepest sleep modes to provide a wake up source.
 */
 /************************************************************************************************************/
-void setup_watchdog(byte sleep_time)
+void setup_watchdog1(byte sleep_time)
 {
   wdt_enable(sleep_time);
+}
+
+
+//****************************************************************
+// 0=16ms, 1=32ms,2=64ms,3=128ms,4=250ms,5=500ms
+// 6=1 sec,7=2 sec, 8=4 sec, 9= 8sec
+void setup_watchdog2 (int ii)
+{
+
+  byte bb;
+  int ww;
+  if (ii > 9 ) ii = 9;
+  bb = ii & 7;
+  if (ii > 7) bb |= (1 << 5);
+  bb |= (1 << WDCE);
+  ww = bb;
+  Serial.println(ww);
+
+  MCUSR &= ~(1 << WDRF);
+  // запуск таймера
+  WDTCSR |= (1 << WDCE) | (1 << WDE);
+  // установка периода срабатывания сторожевого таймера
+  WDTCSR = bb;
+  WDTCSR |= _BV(WDIE);
+
+}
+
+void setup_watchdog (byte sleep_time)
+{
+  //wdt_enable(sleep_time);
+  // clear various "reset" flags
+  MCUSR = 0;
+  // allow changes, disable reset
+  WDTCSR = bit (WDCE) | bit (WDE);
+  // set interrupt mode and an interval
+  WDTCSR = bit (WDIE) | bit (WDP3) | bit (WDP0);    // set WDIE, and 8 seconds delay
+  //WDTCSR |= _BV(WDIE);
+  wdt_reset();  // pat the dog
+
 }
 
 
