@@ -251,9 +251,9 @@ void goToSleep ()
   //wdt_set ();
   //setup_watchdog(WDTO_8S); // approximately 8sec. of sleep
   
-  setup_watchdog1(8);
-  watchdog_counter = 0;  
-  f_wdt = false;
+  //setup_watchdog1(8);
+  //watchdog_counter = 0;  
+  //f_wdt = false;
   
 
   power_all_disable();                 //disable all peripheries (timer0, timer1, Universal Serial Interface, ADC)
@@ -274,9 +274,9 @@ void goToSleep ()
 
   
 
-  if (f_wdt = false || watchdog_counter >= 5)  // wait for watchdog counter reched the limit (WDTO_8S * 4 = 32sec.)
+  //if (f_wdt = false || watchdog_counter >= 5)  // wait for watchdog counter reched the limit (WDTO_8S * 4 = 32sec.)
   {
-    watchdog_counter = 0;     // reset watchdog_counter
+  //  watchdog_counter = 0;     // reset watchdog_counter
 
     // cancel sleep as a precaution
     sleep_disable();

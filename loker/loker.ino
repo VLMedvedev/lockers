@@ -142,7 +142,7 @@ void setup()
   //prints time since program started
   Serial.println(timeBegin);
 
-  setup_watchdog(WDTO_8S); //approximately 8 sec. of sleep  
+  //setup_watchdog(WDTO_8S); //approximately 8 sec. of sleep  
 }
 
 
@@ -192,7 +192,7 @@ void testTimeToSleep ()
   if (timeDelta > 5)
   {
     Serial.println("I want sleep ...");
-   setup_watchdog(WDTO_8S); //approximately 8 sec. of sleep    
+   //setup_watchdog(WDTO_8S); //approximately 8 sec. of sleep    
    go_sleep ();
 
   }
@@ -250,37 +250,6 @@ void keypadEvent(KeypadEvent key) {
 /************************************************************************************************************/
 void loop()
 {
-  while (watchdog_counter < 4) //wait for watchdog counter reched the limit (WDTO_8S * 4 = 32sec.)
-  {
-    go_sleep();
-  }
-  
-  watchdog_counter = 0;     //reset watchdog_counter
-  power_all_enable();       //enable all peripheries (timer0, timer1, Universal Serial Interface, ADC)
-  /*
-  power_adc_enable();       //enable ADC
-  power_timer0_enable();    //enable Timer0
-  power_timer1_enable();    //enable Timer1
-  power_usi_enable();       //enable the Universal Serial Interface module
-  */
-  delay(5);                 //to settle down the ADC and peripheries
-
- 
-   wdt_disable();
-    timeBegin = millis();
-    
-    Serial.println ("Awake!");
-    Serial.print ("PINB = ");
-    Serial.println (PINB, HEX);
-    Serial.print ("PIND = ");
-    Serial.println (PIND, HEX);
-
-    // put keypad pins back how they are expected to be
-    reconfigurePins ();
-    delay(50);
-    
-    digitalWrite(ledPin, HIGH);
-
  char key = keypad.getKey();
 
   if (key) {
@@ -373,8 +342,42 @@ void go_sleep()
                                          clears the SE (Sleep Enable) bit afterwards).
                                          the sketch will continue from this point after interrupt or WDT timed out
                                        */
+  go_wake ();                                     
 }
 
+void go_wake ()
+{
+  // while (watchdog_counter < 4) //wait for watchdog counter reched the limit (WDTO_8S * 4 = 32sec.)
+  //{
+  //  go_sleep();
+  //}
+  
+  watchdog_counter = 0;     //reset watchdog_counter
+  power_all_enable();       //enable all peripheries (timer0, timer1, Universal Serial Interface, ADC)
+  /*
+  power_adc_enable();       //enable ADC
+  power_timer0_enable();    //enable Timer0
+  power_timer1_enable();    //enable Timer1
+  power_usi_enable();       //enable the Universal Serial Interface module
+  */
+  delay(5);                 //to settle down the ADC and peripheries
+
+ 
+   //wdt_disable();
+    timeBegin = millis();
+    
+    Serial.println ("Awake!");
+    Serial.print ("PINB = ");
+    Serial.println (PINB, HEX);
+    Serial.print ("PIND = ");
+    Serial.println (PIND, HEX);
+
+    // put keypad pins back how they are expected to be
+    reconfigurePins ();
+    delay(50);
+    
+    digitalWrite(ledPin, HIGH);
+}
 
 /************************************************************************************************************/
 /*
