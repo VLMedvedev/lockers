@@ -63,9 +63,8 @@ EMPTY_INTERRUPT (PCINT2_vect)
 
 
 // use volatile for shared variables
-byte watchdog_counter_max = 15;
-volatile byte watchdog_counter = 15;
-
+volatile byte watchdog_counter = 0;
+volatile boolean f_wdt = false;
 
 void setup() {
   wdt_disable(); // бесполезная строка до которой не доходит выполнение при bootloop
@@ -155,6 +154,7 @@ Watchdog Interrupt Service (executed when watchdog timed out)
 ISR (WDT_vect)
 {
 watchdog_counter++;
+f_wdt = true;
 }
 
 void wdt_set ()
@@ -201,8 +201,8 @@ void reconfigurePins ()
 
 void wakeUp()
 {
-  watchdog_counter = watchdog_counter_max+1; 
- }
+  f_wdt = false;
+}
 
 
 void goToSleep ()
@@ -252,6 +252,9 @@ void goToSleep ()
   //setup_watchdog(WDTO_8S); // approximately 8sec. of sleep
   
   setup_watchdog1(8);
+  watchdog_counter = 0;  
+  f_wdt = false;
+  
 
   power_all_disable();                 //disable all peripheries (timer0, timer1, Universal Serial Interface, ADC)
   /*              
@@ -271,7 +274,7 @@ void goToSleep ()
 
   
 
-  if (watchdog_counter >= watchdog_counter_max)  // wait for watchdog counter reched the limit (WDTO_8S * 4 = 32sec.)
+  if (f_wdt = false || watchdog_counter >= 5)  // wait for watchdog counter reched the limit (WDTO_8S * 4 = 32sec.)
   {
     watchdog_counter = 0;     // reset watchdog_counter
 
@@ -320,7 +323,7 @@ void testTimeToSleep ()
   }
   else
   {
-    wdt_reset();  // pat the dog
+    //wdt_reset();  // pat the dog
   }
 
 }
@@ -332,7 +335,8 @@ void loop() {
     Serial.println(key);
     lcd.print((char) key);
     timeBegin = millis();
-    watchdog_counter = watchdog_counter_max+1;  
+    watchdog_counter = 0;  
+    f_wdt = false;
   }
   if (blink) {
     digitalWrite(ledPin, !digitalRead(ledPin));   // Change the ledPin from Hi2Lo or Lo2Hi.
@@ -345,7 +349,8 @@ void loop() {
 
 // Taking care of some special events.
 void keypadEvent(KeypadEvent key) {
-  watchdog_counter = watchdog_counter_max+1;  
+  watchdog_counter = 0;  
+  f_wdt = false;
 
   switch (keypad.getState()) {
     case PRESSED:
