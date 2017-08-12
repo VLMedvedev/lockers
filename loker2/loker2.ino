@@ -39,6 +39,8 @@ byte colPins[COLS] = { 9, 10, 11 , 12};
 
 Keypad keypad = Keypad( makeKeymap(keys), rowPins, colPins, ROWS, COLS );
 
+// Use pin 2 as wake up pin
+const int wakeUpPin = 2;
 byte ledPin = 13;
 boolean ledPin_state;
 unsigned long timeBegin;
@@ -72,12 +74,10 @@ volatile byte bCount = 0; // use volatile for shared variables
 void setup() {
   wdt_disable(); // бесполезная строка до которой не доходит выполнение при bootloop
   Serial.begin(115200);
-  Serial.println("Setup..");
-
   Serial.println("Wait 5 sec..");
   delay(5000); // Задержка, чтобы было время перепрошить устройство в случае bootloop
   //wdt_enable (WDTO_8S); // Для тестов не рекомендуется устанавливать значение менее 8 сек.
-  Serial.println("Watchdog enabled.");
+  //Serial.println("Watchdog enabled.");
 
 
   pinMode(ledPin, OUTPUT);              // Sets the digital pin as output.
@@ -96,11 +96,18 @@ void setup() {
   PCMSK2 |= _BV (PCINT23);   // pin 7  - PORTD mask 0x80
   PCMSK0 |= _BV (PCINT0);    // pin 8  - PORTB mask 0x01
 
+   // Configure wake up pin as input.
+    // This will consumes few uA of current.
+    pinMode(wakeUpPin, INPUT_PULLUP);  
+   // Allow wake up pin to trigger interrupt on low.
+    attachInterrupt(0, wakeUp, LOW);
+
+    
   //SetTimer1 ();
 
   timeBegin = millis();
   //prints time since program started
-  Serial.println(timeBegin);
+  //Serial.println(timeBegin);
   // MsTimer2::start();
 
   // setup_watchdog(7);
@@ -207,8 +214,10 @@ void reconfigurePins ()
 
 void wakeUp()
 {
-
- 
+  timeBegin = millis();
+   Serial.println ("external wake up ...");
+   delay(50);
+  reboot();
 }
 
 
@@ -244,11 +253,12 @@ void goToSleep ()
 
 
   Serial.println ("Going to sleep ...");
-  Serial.print ("PINB = ");
-  Serial.println (PINB, HEX);
-  Serial.print ("PIND = ");
-  Serial.println (PIND, HEX);
-
+  /*
+    Serial.print ("PINB = ");
+    Serial.println (PINB, HEX);
+    Serial.print ("PIND = ");
+    Serial.println (PIND, HEX);
+  */
   // overcome any debounce delays built into the keypad library
   delay (50);
 
@@ -281,11 +291,12 @@ void goToSleep ()
 
 
   Serial.println ("Awake!");
-  Serial.print ("PINB = ");
-  Serial.println (PINB, HEX);
-  Serial.print ("PIND = ");
-  Serial.println (PIND, HEX);
-
+  /*
+    Serial.print ("PINB = ");
+    Serial.println (PINB, HEX);
+    Serial.print ("PIND = ");
+    Serial.println (PIND, HEX);
+  */
   // put keypad pins back how they are expected to be
   reconfigurePins ();
   digitalWrite(ledPin, HIGH);
