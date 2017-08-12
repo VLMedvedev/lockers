@@ -103,44 +103,16 @@ void setup() {
     attachInterrupt(0, wakeUp, LOW);
 
     
-  //SetTimer1 ();
-
   timeBegin = millis();
   //prints time since program started
   //Serial.println(timeBegin);
-  // MsTimer2::start();
-
+ 
   // setup_watchdog(7);
   //dumpmonSetup(115200);
 
 }
 
 
-void SetTimer1 ()
-{
-
-  //MsTimer2::set(1000, TimerInterupt); // 1500ms period
-  //MsTimer2::stop();
-  //  Timer1.initialize(5000000);
-  // Timer1.stop();
-  // Timer1.attachInterrupt(TimerInterupt); // blinkLED to run every 0.15 seconds
-
-}
-
-
-void TimerInterupt ()
-{
-
-  // bCount++;
-  //if ( bCount == 3 )
-  {
-    Serial.println ("set timer ...");
-    //Timer1.stop();
-    // goToSleep ();
-    //reboot() ;
-  }
-
-}
 
 
 //****************************************************************
@@ -216,7 +188,7 @@ void wakeUp()
 {
   timeBegin = millis();
    Serial.println ("external wake up ...");
-   delay(50);
+  // delay(50);
   reboot();
 }
 
@@ -259,6 +231,13 @@ void goToSleep ()
     Serial.print ("PIND = ");
     Serial.println (PIND, HEX);
   */
+
+   // Configure wake up pin as input.
+    // This will consumes few uA of current.
+    pinMode(wakeUpPin, INPUT_PULLUP);  
+   // Allow wake up pin to trigger interrupt on low.
+    attachInterrupt(0, wakeUp, LOW);
+  
   // overcome any debounce delays built into the keypad library
   delay (50);
 
