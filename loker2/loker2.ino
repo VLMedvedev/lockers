@@ -6,6 +6,7 @@
 #include <avr/wdt.h>
 #include <dumpmon.h>        // Include necessary header.
 #include <OneWire.h>
+#include <EEPROM.h>
 
 #define DS2413_ONEWIRE_PIN  (8)
 
@@ -20,13 +21,15 @@ uint8_t address[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
 
 typedef struct
 {
-  byte SerialNumberUnit[9];
-  byte ID_paket[14];
+  byte SerialNumberUnit[6] = "123456";
+  byte ID_paket[14] = "LF202929536CN";
   unsigned long PassWord;
   byte StatusUnit;
 }  record_type;
 
-record_type record[8];
+//record_type record[8];
+
+int len_eeAddress = 25;
 
 const byte secret[256] = "01234567890qwertyuiopasdfghjkl;zxcvbnm,./1234567890qwertyuiopasdfghjkl;zxcvbnm,./1234567890qwertyuiopasdfghjkl;zxcvbnm,./1234567890qwertyuiopasdfghjkl;zxcvbnm,./1234567890qwertyuiopasdfghjkl;zxcvbnm,./1234567890qwertyuiopasdfghjkl;zxcvbnm,./123456789012345";
 
@@ -91,7 +94,7 @@ void setup() {
   wdt_disable(); // бесполезная строка до которой не доходит выполнение при bootloop
   Serial.begin(115200);
   Serial.println("Wait 5 sec..");
-  delay(5000); // Задержка, чтобы было время перепрошить устройство в случае bootloop
+  delay(1000); // Задержка, чтобы было время перепрошить устройство в случае bootloop
   //wdt_enable (WDTO_8S); // Для тестов не рекомендуется устанавливать значение менее 8 сек.
   //Serial.println("Watchdog enabled.");
 
@@ -119,8 +122,6 @@ void setup() {
   // Allow wake up pin to trigger interrupt on low.
   attachInterrupt(0, wakeUp, LOW);
 
-
-
   timeBegin = millis();
   //prints time since program started
   //Serial.println(timeBegin);
@@ -128,8 +129,10 @@ void setup() {
   // setup_watchdog(7);
   //dumpmonSetup(115200);
 
-  test_1_wire();
- 
+  //len_eeAddress += sizeof(record); //Move address to the next byte after  'record'.
+
+  //test_1_wire();
+
   get_box_table ();
 
 }
@@ -364,22 +367,106 @@ void keypadEvent(KeypadEvent key) {
 }
 
 /********************************************************/
-
-
-unsigned long calk_password (byte ID_box) 
+void printBytes(uint8_t* addr, uint8_t count, bool newline = 0)
 {
-  
+  for (uint8_t i = 0; i < count; i++)
+  {
+    Serial.print(addr[i] >> 4, HEX);
+    Serial.print(addr[i] & 0x0f, HEX);
+    Serial.print(" ");
+  }
+  if (newline)
+  {
+    Serial.println();
+  }
+}
+
+
+unsigned long calk_password (byte ID_box)
+{
+  record_type record;
+  int eeAddress = 0;
+  uint8_t sbyte; //secret byte
+  uint8_t mb; //master 4 bit byte
+  uint8_t sb; //slave 4 bite bite
+  uint8_t adr = 0; //addres secret
+  uint8_t pb; // pas byte
+  uint8_t passwd[6];
+  eeAddress = eeAddress + ID_box * len_eeAddress;
+  Serial.print(eeAddress);
+  Serial.print(" id ");
+  //EEPROM.get(eeAddress, record);
+  //byte ID_paket = record.ID_paket[14];
+  uint8_t ID_paket[14] = "LF202929536CN";
+   uint8_t ID[14];
+   ID[14] = ID_paket[14];
+
+  //Serial.println(ID_paket);
+  printBytes(ID_paket, 14);
+  for (int i = 0; i <= 5; i++)
+  {
+    sbyte = secret[adr];
+    Serial.print(" sbyte ");
+    Serial.println(sbyte);
+    Serial.print(" adr - ");
+    Serial.println(adr, HEX);
+    mb = sbyte & B00001111;
+    sb = sbyte & B11110000;
+    adr = ( ID[0] >> mb ) + sb;
+    pb = sb % 9;
+    Serial.print(" adr + ");
+    Serial.println(adr, HEX);
+
+    Serial.print(" pb ");
+    Serial.println(pb, HEX);
+    passwd[i] = pb;
+  }
+  unsigned long passwdint = int(passwd);
+  Serial.print(passwdint);
+  Serial.println(" pass ");
+  return passwd;
 }
 
 void get_box_table ()
 {
-  record[0].SerialNumberUnit[9] = "A1234567";
-  record[0].ID_paket[14] = "RB298973247SG";
-  record[0].PassWord = calk_password (0) ;
-  record[0].StatusUnit = 0x43;
-  
-  record[1] = (record_type) { "3A234567", "LF202929536CN", 123456, 0x43 };
-  record[2] = (record_type) { "3A234568", "RB298973247SG", 654321, 0x43 };
+  /*
+    record_type record;
+    int eeAddress = 0;
+
+    record.SerialNumberUnit[9] = "1234567";
+    record.ID_paket[14] = "RB298973247SG";
+    //record.PassWord = calk_password (0) ;
+    record.PassWord = 654321 ;
+    record.StatusUnit = 0x43;
+
+    Serial.print(eeAddress);
+    Serial.print(record.SerialNumberUnit[9] );
+    Serial.print(record.ID_paket[14] );
+    Serial.print(record.PassWord);
+    Serial.print(record.StatusUnit);
+
+
+    //One simple call, with the address first and the object second.
+    EEPROM.put(eeAddress, record);
+
+    record.SerialNumberUnit[9] = "2345681";
+    record.ID_paket[14] = "LF202929536CN";
+    //record.PassWord = calk_password (1) ;
+    record.PassWord = 123456 ;
+    record.StatusUnit = 0x43;
+
+    eeAddress = eeAddress + len_eeAddress;
+    //One simple call, with the address first and the object second.
+    EEPROM.put(eeAddress, record);
+  */
+  /*
+    eeAddress = eeAddress + 2 * len_eeAddress;
+    record = (record_type) { "3A23997", "LF202929536CN", 999999, 0x43 };
+    EEPROM.put(eeAddress, record);
+  */
+  calk_password (0);
+  calk_password (1);
+
 }
 
 void set_password(char key)
@@ -397,22 +484,9 @@ void set_password(char key)
 
 /***************************************1-Wire***************************/
 
-void printBytes(uint8_t* addr, uint8_t count, bool newline=0) 
-{
-  for (uint8_t i = 0; i < count; i++) 
-  {
-    Serial.print(addr[i]>>4, HEX);
-    Serial.print(addr[i]&0x0f, HEX);
-    Serial.print(" ");
-  }
-  if (newline)
-  {
-    Serial.println();
-  }
-}
 
 byte read(void)
-{    
+{
   bool ok = false;
   uint8_t results;
 
@@ -425,7 +499,7 @@ byte read(void)
   results &= 0x0F;                          /* Clear inverted values      */
 
   oneWire.reset();
-  
+
   // return ok ? results : -1;
   return results;
 }
@@ -433,56 +507,56 @@ byte read(void)
 bool write(uint8_t state)
 {
   uint8_t ack = 0;
-  
+
   /* Top six bits must '1' */
   state |= 0xFC;
-  
+
   oneWire.reset();
   oneWire.select(address);
   oneWire.write(DS2413_ACCESS_WRITE);
   oneWire.write(state);
-  oneWire.write(~state);                    /* Invert data and resend     */    
-  ack = oneWire.read();                     /* 0xAA=success, 0xFF=failure */  
+  oneWire.write(~state);                    /* Invert data and resend     */
+  ack = oneWire.read();                     /* 0xAA=success, 0xFF=failure */
   if (ack == DS2413_ACK_SUCCESS)
   {
     oneWire.read();                          /* Read the status byte      */
   }
   oneWire.reset();
-    
+
   return (ack == DS2413_ACK_SUCCESS ? true : false);
 }
 
 void test_1_wire()
 {
-   
+
   Serial.println(F("Looking for a DS2413 on the bus"));
-  
+
   /* Try to find a device on the bus */
   oneWire.reset_search();
   delay(250);
-  if (!oneWire.search(address)) 
+  if (!oneWire.search(address))
   {
     printBytes(address, 8);
     Serial.println(F("No device found on the bus!"));
     oneWire.reset_search();
-    while(1);
+    while (1);
   }
-  
+
   /* Check the CRC in the device address */
-  if (OneWire::crc8(address, 7) != address[7]) 
+  if (OneWire::crc8(address, 7) != address[7])
   {
     Serial.println(F("Invalid CRC!"));
-    while(1);
+    while (1);
   }
-  
+
   /* Make sure we have a DS2413 */
-  if (address[0] != DS2413_FAMILY_ID) 
+  if (address[0] != DS2413_FAMILY_ID)
   {
     printBytes(address, 8);
     Serial.println(F(" is not a DS2413!"));
-    while(1);
+    while (1);
   }
-  
+
   Serial.print(F("Found a DS2413: "));
   printBytes(address, 8);
   Serial.println(F(""));
@@ -490,10 +564,10 @@ void test_1_wire()
   test_wire1() ;
 }
 
-void test_wire1() 
+void test_wire1()
 {
   /* Read */
-  
+
   uint8_t state = read();
   if (state == -1)
     Serial.println(F("Failed reading the DS2413"));
@@ -501,16 +575,16 @@ void test_wire1()
     Serial.println(state, BIN);
 
   Serial.println();
-    
+
   /* Write */
   /*
-  bool ok = false;
-  ok = write(0x3);
-  if (!ok) Serial.println(F("Wire failed"));
-  delay(1000);
-  ok = write(0x0);
-  if (!ok) Serial.println(F("Wire failed"));
-  delay(1000);
- */
+    bool ok = false;
+    ok = write(0x3);
+    if (!ok) Serial.println(F("Wire failed"));
+    delay(1000);
+    ok = write(0x0);
+    if (!ok) Serial.println(F("Wire failed"));
+    delay(1000);
+  */
 }
 
