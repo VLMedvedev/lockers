@@ -8,7 +8,7 @@
 #include <OneWire.h>
 #include <EEPROM.h>
 
-#define DS2413_ONEWIRE_PIN  (8)
+#define DS2413_ONEWIRE_PIN  (4)
 
 #define DS2413_FAMILY_ID    0x3A
 #define DS2413_ACCESS_READ  0xF5
@@ -18,20 +18,31 @@
 
 OneWire oneWire(DS2413_ONEWIRE_PIN);
 uint8_t address[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
-
+/*
 typedef struct
 {
-  byte SerialNumberUnit[6] = "123456";
-  byte ID_paket[14] = "LF202929536CN";
-  unsigned long PassWord;
+  String SerialNumberUnit = "3A1234567";
+  String ID_paket = "LF202929536CN";
   byte StatusUnit;
 }  record_type;
+*/
 
-//record_type record[8];
+struct record_type
+{
+  char SerialNumberUnit[7];
+  char ID_paket[14];
+  byte StatusUnit;
+}  ;
 
-int len_eeAddress = 25;
+String PassWord[32];
 
-const byte secret[256] = "01234567890qwertyuiopasdfghjkl;zxcvbnm,./1234567890qwertyuiopasdfghjkl;zxcvbnm,./1234567890qwertyuiopasdfghjkl;zxcvbnm,./1234567890qwertyuiopasdfghjkl;zxcvbnm,./1234567890qwertyuiopasdfghjkl;zxcvbnm,./1234567890qwertyuiopasdfghjkl;zxcvbnm,./123456789012345";
+int len_eeAddress = 22;
+
+const byte secret[16] = "01234567890ABCDEF";
+const uint8_t key[] = {55, 129, 2, 45, 4, 115, 6, 7, 211, 9, 10, 11, 192, 13, 14, 15};
+
+char passwd[7] = "      " ;
+String pass_wd;
 
 // initialize the library with the numbers of the interface pins
 LiquidCrystal lcd(A0, A1, A2, A3, A4, A5);
@@ -130,10 +141,12 @@ void setup() {
   //dumpmonSetup(115200);
 
   //len_eeAddress += sizeof(record); //Move address to the next byte after  'record'.
-
-  //test_1_wire();
-
-  get_box_table ();
+for (byte i=0; i <= 5; i++)
+  {
+  test_1_wire();
+  }
+  //put_box_table ();
+  //greate_passwd_table ();
 
 }
 
@@ -343,6 +356,9 @@ void keypadEvent(KeypadEvent key) {
       // break;
       if (key == 'C') {
         lcd.setCursor(0, 1);
+        password = "      ";
+        lcd.print(password);
+        
       }
       if (key == 'D') {
         lcd.setCursor(1, 1);
@@ -381,96 +397,214 @@ void printBytes(uint8_t* addr, uint8_t count, bool newline = 0)
   }
 }
 
-
-unsigned long calk_password (byte ID_box)
+String calk_password(String data)
 {
-  record_type record;
-  int eeAddress = 0;
-  uint8_t sbyte; //secret byte
-  uint8_t mb; //master 4 bit byte
-  uint8_t sb; //slave 4 bite bite
-  uint8_t adr = 0; //addres secret
-  uint8_t pb; // pas byte
-  uint8_t passwd[6];
-  eeAddress = eeAddress + ID_box * len_eeAddress;
-  Serial.print(eeAddress);
-  Serial.print(" id ");
-  //EEPROM.get(eeAddress, record);
-  //byte ID_paket = record.ID_paket[14];
-  uint8_t ID_paket[14] = "LF202929536CN";
-   uint8_t ID[14];
-   ID[14] = ID_paket[14];
+  uint8_t j = 0; // counter summ byte
+  uint8_t i = 0; //counter main
+  uint8_t k = 0; // counter pass
+  uint8_t p = 0; // pointer
+  boolean f_and = false; // and or
+  boolean f_rol = false; // rol ror
+  uint8_t data_byte;
+  uint32_t pass_num = 0;
+  String pass = "";
 
-  //Serial.println(ID_paket);
-  printBytes(ID_paket, 14);
-  for (int i = 0; i <= 5; i++)
+  p = key[0] % 16;
+  if (key[0] > 128)
   {
-    sbyte = secret[adr];
-    Serial.print(" sbyte ");
-    Serial.println(sbyte);
-    Serial.print(" adr - ");
-    Serial.println(adr, HEX);
-    mb = sbyte & B00001111;
-    sb = sbyte & B11110000;
-    adr = ( ID[0] >> mb ) + sb;
-    pb = sb % 9;
-    Serial.print(" adr + ");
-    Serial.println(adr, HEX);
-
-    Serial.print(" pb ");
-    Serial.println(pb, HEX);
-    passwd[i] = pb;
+    f_rol = true;
   }
-  unsigned long passwdint = int(passwd);
-  Serial.print(passwdint);
-  Serial.println(" pass ");
-  return passwd;
+  if (key[1] > 128)
+  {
+    f_and = true;
+  }
+
+  // Serial.println(p, HEX);
+  //   Serial.print(" ");
+
+  while ( i < 16 )
+  {
+    //delay(100);
+
+    data_byte = data.charAt(p);
+    /*
+      Serial.print(data_byte, HEX);
+      Serial.print(" key ");
+      Serial.print(key[i], HEX);
+      Serial.print(" ");
+      Serial.print(data_byte, HEX);
+      Serial.print("  ");
+      Serial.print(data_byte, HEX);
+      Serial.print("  ");
+      Serial.print(" i - ");
+      Serial.print(i, HEX);
+      Serial.print(" p - ");
+      Serial.println(p, HEX);
+    */
+    if (f_and)
+    {
+      data_byte = data_byte | key[i];
+    }
+    else
+    {
+      data_byte = data_byte & key[i];
+    }
+    data_byte = data_byte ^ key[i];
+
+    pass_num = pass_num + data_byte;
+
+    if (!f_rol)
+    {
+      //    Serial.print(" ror - ");
+      p++;
+      if (p >= 16)
+      {
+        p = 0;
+      }
+    }
+    else
+    {
+      //    Serial.print(" rol - ");
+      p--;
+      //   Serial.print(" p - ");
+      //  Serial.println(p, HEX);
+      if (p == 255)
+      {
+        p = 15;
+      }
+      //   Serial.print(" p - ");
+      //   Serial.println(p, HEX);
+    }
+
+    i++;
+    j++;
+
+    //   Serial.print(pass_num);
+    //  Serial.print(" ");
+
+    if ( j >= 3 )
+    {
+      String num = String( pass_num % 9);
+      //   Serial.println(num);
+      pass = pass + num;
+      //pass.setCharAt(k , num);
+
+      k++;
+      pass_num = 0;
+      j = 0;
+    }
+  }
+  String num = String(char(48 + pass_num % 9));
+  //    Serial.println(num);
+  pass = pass + num;
+  // pass.setCharAt(k , num);
+
+  Serial.println(pass);
+  return pass;
 }
 
-void get_box_table ()
+void set_str (char* strrez, char* strset, byte len)
+{
+  for (byte i=0; i <= len; i++)
+  {
+    strrez[i] = strset[i];
+  }  
+}
+
+void put_box_table ()
 {
   /*
-    record_type record;
-    int eeAddress = 0;
+  record_type record;
+  
+  int eeAddress = 256;
+  set_str(record.SerialNumberUnit, "123456",7);
+  set_str(record.ID_paket, "RB298973247SG", 14)  ;
+  record.StatusUnit = 0x43;
+  
+  Serial.println(" structur ");
+  Serial.println(eeAddress);
+  //Serial.println(record.SerialNumberUnit );
+  Serial.println(record.ID_paket );
+  Serial.println(record.StatusUnit);
+  // Serial.println(record.PassWord);
 
-    record.SerialNumberUnit[9] = "1234567";
-    record.ID_paket[14] = "RB298973247SG";
-    //record.PassWord = calk_password (0) ;
-    record.PassWord = 654321 ;
-    record.StatusUnit = 0x43;
+  //One simple call, with the address first and the object second.
+  EEPROM.put(eeAddress, record);   
+  delay(350);
 
-    Serial.print(eeAddress);
-    Serial.print(record.SerialNumberUnit[9] );
-    Serial.print(record.ID_paket[14] );
-    Serial.print(record.PassWord);
-    Serial.print(record.StatusUnit);
+  eeAddress = 256;
+  eeAddress = eeAddress + len_eeAddress;
+  Serial.println(len_eeAddress);
+  Serial.println(eeAddress);
+ // record_type record = { "3A2397", "LF202929536CN", 0x43  };
+  set_str(record.SerialNumberUnit, "3A2397", 7);
+  set_str(record.ID_paket, "LF202929536CN", 14) ;
+  record.StatusUnit = 0x43;
+  
+  EEPROM.put(eeAddress, record);
+   delay(350);
 
+  eeAddress = 256;
+  eeAddress = eeAddress + (2 * len_eeAddress);
+  Serial.println(len_eeAddress);
+  Serial.println(eeAddress);
+  set_str(record.SerialNumberUnit, "3A4697", 7);
+  set_str(record.ID_paket, "MF102229526RN", 14);  
+  record.StatusUnit = 0x43;
 
-    //One simple call, with the address first and the object second.
-    EEPROM.put(eeAddress, record);
+  EEPROM.put(eeAddress, record);
+   delay(350);
 
-    record.SerialNumberUnit[9] = "2345681";
-    record.ID_paket[14] = "LF202929536CN";
-    //record.PassWord = calk_password (1) ;
-    record.PassWord = 123456 ;
-    record.StatusUnit = 0x43;
+   */
+  
+ get_tabl_unit (1);
+  get_tabl_unit (0); 
+  get_tabl_unit (2);
+  
+}
 
-    eeAddress = eeAddress + len_eeAddress;
-    //One simple call, with the address first and the object second.
-    EEPROM.put(eeAddress, record);
-  */
-  /*
-    eeAddress = eeAddress + 2 * len_eeAddress;
-    record = (record_type) { "3A23997", "LF202929536CN", 999999, 0x43 };
-    EEPROM.put(eeAddress, record);
-  */
-  calk_password (0);
-  calk_password (1);
+record_type get_tabl_unit (byte ID)
+{
+  record_type record;
+  int eeAddress = 256;
+  eeAddress = eeAddress + (ID * len_eeAddress);
+  Serial.print(" read - len_eeAddress ");
+  Serial.println(len_eeAddress);
+  Serial.println(eeAddress);
+  EEPROM.get(eeAddress, record);
+ delay(150);
+  Serial.println("Read custom object from EEPROM: - 1 ");
+  Serial.println(record.SerialNumberUnit);
+  Serial.println(record.ID_paket);
+  Serial.println(record.StatusUnit);
+   delay(150);
+  return record;
+}
 
+void greate_passwd_table ()
+{
+  for (byte i = 0; i <= 10; i++)
+  {
+    record_type record = get_tabl_unit (i);
+    String ID_paket = record.ID_paket;
+    ID_paket.trim();
+      Serial.print(" ID_paket ");
+      Serial.println(ID_paket);   
+    if (record.StatusUnit >= 12 )
+    {
+      String pass = calk_password (ID_paket) ;
+      Serial.print(" pass ");
+      Serial.println(pass);
+      PassWord[i] = pass;
+    }
+  }
 }
 
 void set_password(char key)
 {
+  if (key == 'C') {
+    return;
+  }
   for (int i = 0; i <= 5; i++)
   {
     password.setCharAt(i, password.charAt(i + 1));
@@ -532,14 +666,15 @@ void test_1_wire()
   Serial.println(F("Looking for a DS2413 on the bus"));
 
   /* Try to find a device on the bus */
-  oneWire.reset_search();
-  delay(250);
+  //oneWire.reset_search();
+  //delay(250);
   if (!oneWire.search(address))
   {
-    printBytes(address, 8);
+   // printBytes(address, 8);
     Serial.println(F("No device found on the bus!"));
     oneWire.reset_search();
-    while (1);
+     delay(500);
+    return;
   }
 
   /* Check the CRC in the device address */
