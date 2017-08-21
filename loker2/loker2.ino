@@ -1,12 +1,18 @@
 
 #include <Keypad2.h>
+//#include <SoftwareSerial.h>
 #include <LiquidCrystal.h>
 #include <avr/sleep.h>
-//#include <MsTimer2.h>
 #include <avr/wdt.h>
-#include <dumpmon.h>        // Include necessary header.
+//#include <dumpmon.h>        // Include necessary header.
 #include <OneWire.h>
 #include <EEPROM.h>
+
+#include <AltSoftSerial.h>
+AltSoftSerial BarcodeScaner; // RX-8, TX-9
+
+//SoftwareSerial BarcodeScaner(A0, A1); // RX, TX
+char strBarcode[16];
 
 #define DS2413_ONEWIRE_PIN  (4)
 
@@ -19,12 +25,12 @@
 OneWire oneWire(DS2413_ONEWIRE_PIN);
 uint8_t address[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
 /*
-typedef struct
-{
+  typedef struct
+  {
   String SerialNumberUnit = "3A1234567";
   String ID_paket = "LF202929536CN";
   byte StatusUnit;
-}  record_type;
+  }  record_type;
 */
 
 struct record_type
@@ -38,8 +44,8 @@ String PassWord[32];
 
 int len_eeAddress = 22;
 
-const byte secret[16] = "01234567890ABCDEF";
-const uint8_t key[] = {55, 129, 2, 45, 4, 115, 6, 7, 211, 9, 10, 11, 192, 13, 14, 15};
+//const byte secret[16] = "01234567890ABCDEF";
+const uint8_t secretkey[] = {55, 129, 2, 45, 4, 115, 6, 7, 211, 9, 10, 11, 192, 13, 14, 15};
 
 char passwd[7] = "      " ;
 String pass_wd;
@@ -76,9 +82,12 @@ String password = "      ";
 volatile unsigned long timeBegin;
 
 // we don't want to do anything except wake
+
 EMPTY_INTERRUPT (PCINT0_vect)
 EMPTY_INTERRUPT (PCINT1_vect)
 EMPTY_INTERRUPT (PCINT2_vect)
+
+
 
 /*
   // функция обработки прерывания SPI
@@ -141,12 +150,15 @@ void setup() {
   //dumpmonSetup(115200);
 
   //len_eeAddress += sizeof(record); //Move address to the next byte after  'record'.
-for (byte i=0; i <= 5; i++)
+  for (byte i = 0; i <= 5; i++)
   {
-  test_1_wire();
+    test_1_wire();
   }
   //put_box_table ();
   //greate_passwd_table ();
+
+  // set the data rate for the SoftwareSerial port
+  //BarcodeScaner.begin(9600);
 
 }
 
@@ -331,6 +343,16 @@ void testTimeToSleep ()
 }
 
 void loop() {
+
+  if (BarcodeScaner.available()) {
+    char c = BarcodeScaner.read();
+    Serial.write(c);
+    lcd.setCursor(0, 1);
+    lcd.print(c);
+    
+  }
+
+
   char key = keypad.getKey();
 
   if (key) {
@@ -358,7 +380,7 @@ void keypadEvent(KeypadEvent key) {
         lcd.setCursor(0, 1);
         password = "      ";
         lcd.print(password);
-        
+
       }
       if (key == 'D') {
         lcd.setCursor(1, 1);
@@ -409,12 +431,12 @@ String calk_password(String data)
   uint32_t pass_num = 0;
   String pass = "";
 
-  p = key[0] % 16;
-  if (key[0] > 128)
+  p = secretkey[0] % 16;
+  if (secretkey[0] > 128)
   {
     f_rol = true;
   }
-  if (key[1] > 128)
+  if (secretkey[1] > 128)
   {
     f_and = true;
   }
@@ -443,13 +465,13 @@ String calk_password(String data)
     */
     if (f_and)
     {
-      data_byte = data_byte | key[i];
+      data_byte = data_byte | secretkey[i];
     }
     else
     {
-      data_byte = data_byte & key[i];
+      data_byte = data_byte & secretkey[i];
     }
-    data_byte = data_byte ^ key[i];
+    data_byte = data_byte ^ secretkey[i];
 
     pass_num = pass_num + data_byte;
 
@@ -505,62 +527,62 @@ String calk_password(String data)
 
 void set_str (char* strrez, char* strset, byte len)
 {
-  for (byte i=0; i <= len; i++)
+  for (byte i = 0; i <= len; i++)
   {
     strrez[i] = strset[i];
-  }  
+  }
 }
 
 void put_box_table ()
 {
   /*
-  record_type record;
-  
-  int eeAddress = 256;
-  set_str(record.SerialNumberUnit, "123456",7);
-  set_str(record.ID_paket, "RB298973247SG", 14)  ;
-  record.StatusUnit = 0x43;
-  
-  Serial.println(" structur ");
-  Serial.println(eeAddress);
-  //Serial.println(record.SerialNumberUnit );
-  Serial.println(record.ID_paket );
-  Serial.println(record.StatusUnit);
-  // Serial.println(record.PassWord);
+    record_type record;
 
-  //One simple call, with the address first and the object second.
-  EEPROM.put(eeAddress, record);   
-  delay(350);
+    int eeAddress = 256;
+    set_str(record.SerialNumberUnit, "123456",7);
+    set_str(record.ID_paket, "RB298973247SG", 14)  ;
+    record.StatusUnit = 0x43;
 
-  eeAddress = 256;
-  eeAddress = eeAddress + len_eeAddress;
-  Serial.println(len_eeAddress);
-  Serial.println(eeAddress);
- // record_type record = { "3A2397", "LF202929536CN", 0x43  };
-  set_str(record.SerialNumberUnit, "3A2397", 7);
-  set_str(record.ID_paket, "LF202929536CN", 14) ;
-  record.StatusUnit = 0x43;
-  
-  EEPROM.put(eeAddress, record);
-   delay(350);
+    Serial.println(" structur ");
+    Serial.println(eeAddress);
+    //Serial.println(record.SerialNumberUnit );
+    Serial.println(record.ID_paket );
+    Serial.println(record.StatusUnit);
+    // Serial.println(record.PassWord);
 
-  eeAddress = 256;
-  eeAddress = eeAddress + (2 * len_eeAddress);
-  Serial.println(len_eeAddress);
-  Serial.println(eeAddress);
-  set_str(record.SerialNumberUnit, "3A4697", 7);
-  set_str(record.ID_paket, "MF102229526RN", 14);  
-  record.StatusUnit = 0x43;
+    //One simple call, with the address first and the object second.
+    EEPROM.put(eeAddress, record);
+    delay(350);
 
-  EEPROM.put(eeAddress, record);
-   delay(350);
+    eeAddress = 256;
+    eeAddress = eeAddress + len_eeAddress;
+    Serial.println(len_eeAddress);
+    Serial.println(eeAddress);
+    // record_type record = { "3A2397", "LF202929536CN", 0x43  };
+    set_str(record.SerialNumberUnit, "3A2397", 7);
+    set_str(record.ID_paket, "LF202929536CN", 14) ;
+    record.StatusUnit = 0x43;
 
-   */
-  
- get_tabl_unit (1);
-  get_tabl_unit (0); 
+    EEPROM.put(eeAddress, record);
+    delay(350);
+
+    eeAddress = 256;
+    eeAddress = eeAddress + (2 * len_eeAddress);
+    Serial.println(len_eeAddress);
+    Serial.println(eeAddress);
+    set_str(record.SerialNumberUnit, "3A4697", 7);
+    set_str(record.ID_paket, "MF102229526RN", 14);
+    record.StatusUnit = 0x43;
+
+    EEPROM.put(eeAddress, record);
+    delay(350);
+
+  */
+
+  get_tabl_unit (1);
+  get_tabl_unit (0);
   get_tabl_unit (2);
-  
+
 }
 
 record_type get_tabl_unit (byte ID)
@@ -572,12 +594,12 @@ record_type get_tabl_unit (byte ID)
   Serial.println(len_eeAddress);
   Serial.println(eeAddress);
   EEPROM.get(eeAddress, record);
- delay(150);
+  delay(150);
   Serial.println("Read custom object from EEPROM: - 1 ");
   Serial.println(record.SerialNumberUnit);
   Serial.println(record.ID_paket);
   Serial.println(record.StatusUnit);
-   delay(150);
+  delay(150);
   return record;
 }
 
@@ -588,8 +610,8 @@ void greate_passwd_table ()
     record_type record = get_tabl_unit (i);
     String ID_paket = record.ID_paket;
     ID_paket.trim();
-      Serial.print(" ID_paket ");
-      Serial.println(ID_paket);   
+    Serial.print(" ID_paket ");
+    Serial.println(ID_paket);
     if (record.StatusUnit >= 12 )
     {
       String pass = calk_password (ID_paket) ;
@@ -670,10 +692,10 @@ void test_1_wire()
   //delay(250);
   if (!oneWire.search(address))
   {
-   // printBytes(address, 8);
+    // printBytes(address, 8);
     Serial.println(F("No device found on the bus!"));
     oneWire.reset_search();
-     delay(500);
+    delay(500);
     return;
   }
 
