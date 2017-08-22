@@ -28,9 +28,9 @@ uint8_t address[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
 
 struct record_type
 {
-  char SerialNumberUnit[7];
-  char ID_paket[14];
-  byte StatusUnit;
+  uint8_t SerialNumberUnit[8];
+  char ID_paket[15];
+  uint8_t StatusUnit;
 }  ;
 
 struct onewire_address_type
@@ -40,10 +40,10 @@ struct onewire_address_type
 
 String PassWord[32];
 
-int len_eeAddress = 22;
+int len_eeAddress = 24;
 
 //const byte secret[16] = "01234567890ABCDEF";
-
+const char serial[11] = "0123ABCDEF";
 
 #define NUMITEMS(arg) ((unsigned int) (sizeof (arg) / sizeof (arg [0])))
 
@@ -62,6 +62,15 @@ void printBytes(uint8_t* addr, uint8_t count, bool newline = 0)
   }
 }
 
+void set_str (char* strrez, char* strset, byte len)
+{
+  for (byte i = 0; i <= len; i++)
+  {
+    strrez[i] = strset[i];
+  }
+}
+/*******************************************************************/
+
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(115200);
@@ -71,14 +80,17 @@ void setup() {
 
   onewire_address_type onewire_address[24];
   uint8_t count = test_1_wire(onewire_address);
-  Serial.print( count ); Serial.println(" "); 
-  for (int i = 0; i < count+1; i++)
-  {   
+  Serial.print( count ); Serial.println(" ");
+  for (int i = 0; i <= count; i++)
+  {
     printBytes(onewire_address[i].SerialNumberUnit, 8);
-    //Serial.print( i ); 
-    Serial.println(" "); 
- 
+    //Serial.print( i );
+    Serial.println(" ");
+
   }
+
+  delay(200);
+  eeprom_test(count);
 
   //put_box_table ();
   //greate_passwd_table ();
@@ -96,14 +108,88 @@ void loop() {
 }
 
 
-
-void set_str (char* strrez, char* strset, byte len)
+void get_eeSerialNumberUnitFromIndex (uint8_t* addr, uint8_t index)
 {
-  for (byte i = 0; i <= len; i++)
+  record_type record;
+  int eeAddress = index * len_eeAddress;
+  EEPROM.get(eeAddress, record);
+  for (byte i = 0; i <= 7; i++)
   {
-    strrez[i] = strset[i];
+    addr[i] = record.SerialNumberUnit[i];
+  }
+
+}
+
+void get_eeIndexFromSerialNumberUnit (uint8_t* addr, uint8_t index)
+{
+  index = 0xFF; //no search
+  record_type record;
+  uint8_t count;
+  int eeAddress = 1022;
+  EEPROM.get(eeAddress, count);
+  if (count >= 32)
+  {
+    return;
+  }
+
+  for (int i = 0; i <= count; i++)
+  {
+    eeAddress = index * len_eeAddress;
+    EEPROM.get(eeAddress, record);
+    boolean yes = false;
+    for (uint8_t j = 0; j <= 7; j++)
+    {
+      if (addr[j] != record.SerialNumberUnit[j])
+      {
+        yes = false;
+        break;
+      }
+      else
+      {
+        yes = true;
+      }
+    }
+    if (yes)
+  {
+    index = i;
+    break;
   }
 }
+
+
+}
+
+void eeprom_test(uint8_t count)
+{
+  /*
+    boolean format = false;
+    int eeAddress = 0;
+    byte eeValue;
+
+    for (int i = 0; i <= 7; i++)
+    {
+      EEPROM.get(eeAddress, eeValue);
+      eeAddress++;
+      byte ser = serial[i];
+      if (ser != eeValue)
+      {
+        format = true;
+        //Serial.println(" Not eq ser "); Serial.print(eeValue, HEX); Serial.print(ser, HEX);
+      }
+  */
+
+
+  for (int i = 0; i <= count; i++)
+  {
+    //Serial.println(" rec "); Serial.println(count, HEX); Serial.println(i, HEX);
+    get_eeSerialNumberUnitFromIndex (address, i);
+    printBytes(address, 8);
+    Serial.println(" rec "); Serial.println(count, HEX); Serial.println(i, HEX);
+  }
+  //Serial.println("Tests ended");
+
+} //end eeprom_test
+
 
 void put_box_table ()
 {
@@ -159,20 +245,22 @@ void put_box_table ()
 
 record_type get_tabl_unit (byte ID)
 {
-  record_type record;
-  int eeAddress = 256;
-  eeAddress = eeAddress + (ID * len_eeAddress);
-  Serial.print(" read - len_eeAddress ");
-  Serial.println(len_eeAddress);
-  Serial.println(eeAddress);
-  EEPROM.get(eeAddress, record);
-  delay(150);
-  Serial.println("Read custom object from EEPROM: - 1 ");
-  Serial.println(record.SerialNumberUnit);
-  Serial.println(record.ID_paket);
-  Serial.println(record.StatusUnit);
-  delay(150);
-  return record;
+  /*
+    record_type record;
+    int eeAddress = 256;
+    eeAddress = eeAddress + (ID * len_eeAddress);
+    Serial.print(" read - len_eeAddress ");
+    Serial.println(len_eeAddress);
+    Serial.println(eeAddress);
+    EEPROM.get(eeAddress, record);
+    delay(150);
+    Serial.println("Read custom object from EEPROM: - 1 ");
+    Serial.println(record.SerialNumberUnit);
+    Serial.println(record.ID_paket);
+    Serial.println(record.StatusUnit);
+    delay(150);
+    return record;
+  */
 }
 
 
@@ -250,14 +338,14 @@ uint8_t test_1_wire(onewire_address_type* onewire_address)
         oneWire.reset_search();
       }
       t++;
-     }
+    }
     else
     {
-      for (int j=0; j <=7; j++)
+      for (int j = 0; j <= 7; j++)
       {
         onewire_address[i].SerialNumberUnit[j] = address[j];
       }
-  
+
       i++;
     }
     delay(500);
@@ -274,8 +362,8 @@ uint8_t test_1_wire(onewire_address_type* onewire_address)
 
   */
   //test_wire1() ;
-  
-  return i-1;
+
+  return i - 1;
 }
 
 void test_wire1()
