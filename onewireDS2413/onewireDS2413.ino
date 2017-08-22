@@ -83,30 +83,33 @@ void setup() {
   Serial.println("Wait 5 sec..");
 
   Serial.println("Tests ..");
-  byte count = 1;
+  byte count = 0;
+/*
+  for (int i = 0 ; i < EEPROM.length() ; i++) {
+    EEPROM.write(i, 0);
+  }
+*/
+  onewire_address_type onewire_address[24];
+  count = test_1_wire(onewire_address);
+  Serial.print( count ); Serial.println(" ");
+  test_ee_count(count);
 
-  
-    onewire_address_type onewire_address[24];
-    count = test_1_wire(onewire_address);
-    Serial.print( count ); Serial.println(" ");
-    test_ee_count(count);
-
-    for (byte i = 0; i <= count; i++)
+  for (byte i = 0; i <= count; i++)
+  {
+    printBytes(onewire_address[i].SerialNumberUnit, LEN_SERIAL);
+    //Serial.print( i );
+    Serial.println(" ");
+    byte index = get_eeIndexFromSerialNumberUnit (onewire_address[i].SerialNumberUnit );
+    Serial.print( index );
+    Serial.println(" ");
+    if ( index == 0xFF)
     {
-      printBytes(onewire_address[i].SerialNumberUnit, LEN_SERIAL);
-      //Serial.print( i );
-      Serial.println(" ");
-      byte index = get_eeIndexFromSerialNumberUnit (onewire_address[i].SerialNumberUnit );
-      Serial.print( index );
-      Serial.println(" ");
-      if ( index == 0xFF)
-      {
-        put_eeSerialNumberUnitToIndex(onewire_address[i].SerialNumberUnit, i);
-      }
-
-      delay(200);
+      put_eeSerialNumberUnitToIndex(onewire_address[i].SerialNumberUnit, i);
     }
-  
+
+    delay(200);
+  }
+
   eeprom_test(count);
 
   //put_box_table ();
@@ -170,6 +173,10 @@ void get_eeSerialNumberUnitFromIndex (byte* addr, byte index) {
   {
     addr[i] = record.SerialNumberUnit[i];
   }
+Serial.print("get eeaddr  sn "); Serial.print(eeAddress); Serial.print(" index "); Serial.print(index); Serial.println();
+  printBytes(addr, LEN_SERIAL, true);
+
+  
 }
 
 void put_eeSerialNumberUnitToIndex (byte* addr, byte index) {
@@ -180,41 +187,51 @@ void put_eeSerialNumberUnitToIndex (byte* addr, byte index) {
     record.SerialNumberUnit[i] = addr[i] ;
   }
   EEPROM.put(eeAddress, record);
+/*
+  Serial.print("put eeaddr  sn "); Serial.print(eeAddress); Serial.print(" index "); Serial.print(index); Serial.println();
+  printBytes(addr, LEN_SERIAL, true);
+
+  byte barcod[LEN_SERIAL];
+  get_eeSerialNumberUnitFromIndex (barcod, index);
+  Serial.print("test put ");
+  printBytes(barcod, LEN_SERIAL, true);
+*/
+  
 }
 
 void get_eeID_paketFromIndex (byte* addr, byte index) {
   record_type record;
-  Serial.print(" in addr"); 
-   printBytes(addr, LEN_ID_PACKET, true);
+  //Serial.print(" in addr");
+  //printBytes(addr, LEN_ID_PACKET, true);
   int eeAddress = index * len_eeAddress;
   EEPROM.get(eeAddress, record);
   for (byte i = 0; i < LEN_ID_PACKET; i++)
   {
     addr[i] = record.ID_paket[i];
-    //Serial.print(" in "); Serial.print(addr[i], HEX); Serial.print(" out "); Serial.print(record.ID_paket[i] , HEX); Serial.println(); 
-   }
-   Serial.print("get eeaddr  "); Serial.print(eeAddress); Serial.print(" index "); Serial.print(index); Serial.println(); 
-  printBytes(addr, LEN_ID_PACKET, true);
+    //Serial.print(" in "); Serial.print(addr[i], HEX); Serial.print(" out "); Serial.print(record.ID_paket[i] , HEX); Serial.println();
+  }
+  //Serial.print("get eeaddr  "); Serial.print(eeAddress); Serial.print(" index "); Serial.print(index); Serial.println();
+  //printBytes(addr, LEN_ID_PACKET, true);
 }
 
 void put_eeID_paketToIndex (byte* addr, byte index) {
   record_type record;
-  int eeAddress = index * len_eeAddress; 
+  int eeAddress = index * len_eeAddress;
   for (byte i = 0; i < LEN_ID_PACKET; i++)
   {
     record.ID_paket[i] = byte(addr[i]) ;
-    //Serial.print(" in "); Serial.print(addr[i], HEX); Serial.print(" out "); Serial.print(record.ID_paket[i] , HEX); Serial.println(); 
+    //Serial.print(" in "); Serial.print(addr[i], HEX); Serial.print(" out "); Serial.print(record.ID_paket[i] , HEX); Serial.println();
   }
   EEPROM.put(eeAddress, record);
-
-  Serial.print("put eeaddr  "); Serial.print(eeAddress); Serial.print(" index "); Serial.print(index); Serial.println(); 
+/*
+  Serial.print("put eeaddr  "); Serial.print(eeAddress); Serial.print(" index "); Serial.print(index); Serial.println();
   printBytes(addr, LEN_ID_PACKET, true);
 
   byte barcod[LEN_ID_PACKET];
   get_eeID_paketFromIndex (barcod, index);
   Serial.print("test put ");
   printBytes(barcod, LEN_ID_PACKET, true);
-  
+*/
 }
 
 byte get_eeStatusUnitFromIndex (byte index) {
@@ -228,8 +245,13 @@ byte get_eeStatusUnitFromIndex (byte index) {
 void put_eeStatusUnitToIndex (byte StatusUnit, byte index) {
   record_type record;
   int eeAddress = index * len_eeAddress;
+  eeAddress += LEN_SERIAL;
+  eeAddress += LEN_ID_PACKET;
+
+   Serial.print("put eeaddr su "); Serial.print(eeAddress); Serial.print(" index "); Serial.print(index); Serial.println();
+  
   record.StatusUnit = StatusUnit;
-  EEPROM.put(eeAddress, record);
+  EEPROM.write(eeAddress, StatusUnit);
 }
 
 byte get_eeIndexFromID_paket (byte* addr) {
@@ -237,7 +259,7 @@ byte get_eeIndexFromID_paket (byte* addr) {
   record_type record;
   byte count;
   int eeAddress = 1022;
-  EEPROM.get(eeAddress, count);
+  count = EEPROM.read(eeAddress );
   if (count >= 32)
   {
     return index;
@@ -285,7 +307,7 @@ byte get_eeIndexFromSerialNumberUnit (byte* addr) {
   record_type record;
   byte count;
   int eeAddress = 1022;
-  EEPROM.get(eeAddress, count);
+  count = EEPROM.read(eeAddress);
   if (count >= 32)
   {
     return index;
@@ -332,11 +354,11 @@ void test_ee_count(byte count) {
   int eeAddress = 1022;
   byte eeValue;
 
-  EEPROM.get(eeAddress, eeValue);
+  eeValue = EEPROM.read(eeAddress);
 
   if (count != eeValue)
   {
-    EEPROM.put(eeAddress, count);
+    EEPROM.write(eeAddress, count);
     //Serial.println(" Not eq ser "); Serial.print(eeValue, HEX); Serial.print(ser, HEX);
   }
 } // test_count
@@ -344,21 +366,29 @@ void test_ee_count(byte count) {
 
 void eeprom_test(byte count) {
   byte addr[LEN_SERIAL] = { 0, 0, 0, 0, 0, 0, 0, 0 };
-  byte barcod[LEN_ID_PACKET];
-  
-    byte bc[LEN_ID_PACKET] = "RB298973247SG";
-    put_eeID_paketToIndex (bc, 0x00);
-    put_eeStatusUnitToIndex (0xA0, 0x00);
-Serial.print("test write ");
+  byte barcod[LEN_ID_PACKET] = { 0, 0, 0, 0, 0, 0, 0, 0 , 0, 0, 0, 0, 0, 0}; ;
+
+  byte bc[LEN_ID_PACKET] = "RB298973247SG";
+  put_eeID_paketToIndex (bc, 0x00);
+  put_eeStatusUnitToIndex (0xB0, 0x00);
+  Serial.print("test write ");
   get_eeID_paketFromIndex (barcod, 0x00);
   printBytes(barcod, LEN_ID_PACKET, true);
-    
-    byte bc1[LEN_ID_PACKET] = "RB299157466SG";
-    put_eeID_paketToIndex (bc1, 0x01);
-    put_eeStatusUnitToIndex (0xA3, 0x01);
 
-   get_eeID_paketFromIndex (barcod, 0x01);
+  get_eeSerialNumberUnitFromIndex (addr, 0x00); 
+  printBytes(addr, LEN_SERIAL, true);
+
+  byte bc1[LEN_ID_PACKET] = "RB299157466SG";
+  put_eeID_paketToIndex (bc1, 0x01);
+  put_eeStatusUnitToIndex (0xB3, 0x01);
+
+  get_eeID_paketFromIndex (barcod, 0x01);
   printBytes(barcod, LEN_ID_PACKET, true);
+
+
+  get_eeSerialNumberUnitFromIndex (addr, 0x01); 
+  printBytes(addr, LEN_SERIAL, true);
+
 
   //delay(100);
 
