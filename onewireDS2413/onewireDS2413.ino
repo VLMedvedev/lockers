@@ -81,25 +81,36 @@ void setup() {
   onewire_address_type onewire_address[24];
   uint8_t count = test_1_wire(onewire_address);
   Serial.print( count ); Serial.println(" ");
+  test_ee_count(count);
+    
   for (int i = 0; i <= count; i++)
   {
     printBytes(onewire_address[i].SerialNumberUnit, 8);
     //Serial.print( i );
     Serial.println(" ");
+    uint8_t index = get_eeIndexFromSerialNumberUnit (onewire_address[i].SerialNumberUnit );
+    Serial.print( index );
+    Serial.println(" ");
+    if ( index == 0xFF)
+    {
+      
+    }
 
+    delay(200);  
   }
-
-  delay(200);
+  
   eeprom_test(count);
 
-  //put_box_table ();
-  //greate_passwd_table ();
+    //put_box_table ();
+    //greate_passwd_table ();
 
-  // set the data rate for the SoftwareSerial port
-  //BarcodeScaner.begin(9600);
-  Serial.println("Tests ended");
+    // set the data rate for the SoftwareSerial port
+    //BarcodeScaner.begin(9600);
+    Serial.println("Tests ended");
 
+  
 }
+
 
 void loop() {
   // put your main code here, to run repeatedly:
@@ -120,16 +131,16 @@ void get_eeSerialNumberUnitFromIndex (uint8_t* addr, uint8_t index)
 
 }
 
-void get_eeIndexFromSerialNumberUnit (uint8_t* addr, uint8_t index)
+uint8_t get_eeIndexFromSerialNumberUnit (uint8_t* addr)
 {
-  index = 0xFF; //no search
+  uint8_t index = 0xFF; //no search
   record_type record;
   uint8_t count;
   int eeAddress = 1022;
   EEPROM.get(eeAddress, count);
   if (count >= 32)
   {
-    return;
+    return index;
   }
 
   for (int i = 0; i <= count; i++)
@@ -150,35 +161,31 @@ void get_eeIndexFromSerialNumberUnit (uint8_t* addr, uint8_t index)
       }
     }
     if (yes)
-  {
-    index = i;
-    break;
+    {
+      index = i;
+      break;
+    }
+    return index;
   }
 }
 
+void test_ee_count(uint8_t count)
+{
+  int eeAddress = 1023;
+  byte eeValue;
 
-}
+  EEPROM.get(eeAddress, eeValue);
+
+  if (count != eeValue)
+  {
+    EEPROM.put(eeAddress, count);
+    //Serial.println(" Not eq ser "); Serial.print(eeValue, HEX); Serial.print(ser, HEX);
+  }
+} // test_count
+
 
 void eeprom_test(uint8_t count)
 {
-  /*
-    boolean format = false;
-    int eeAddress = 0;
-    byte eeValue;
-
-    for (int i = 0; i <= 7; i++)
-    {
-      EEPROM.get(eeAddress, eeValue);
-      eeAddress++;
-      byte ser = serial[i];
-      if (ser != eeValue)
-      {
-        format = true;
-        //Serial.println(" Not eq ser "); Serial.print(eeValue, HEX); Serial.print(ser, HEX);
-      }
-  */
-
-
   for (int i = 0; i <= count; i++)
   {
     //Serial.println(" rec "); Serial.println(count, HEX); Serial.println(i, HEX);
@@ -310,7 +317,7 @@ bool write(uint8_t state)
   return (ack == DS2413_ACK_SUCCESS ? true : false);
 }
 
-uint8_t test_1_wire(onewire_address_type* onewire_address)
+uint8_t test_1_wire(onewire_address_type * onewire_address)
 {
 
   uint8_t i = 0;
